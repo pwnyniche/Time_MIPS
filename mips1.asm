@@ -2,7 +2,7 @@
 	#time
 	converted: .space 20
 	# day
-	daysOfWeek: .word t2, t3, t4, t5, t6, t7, cn
+	#daysOfWeek: .word t2, t3, t4, t5, t6, t7, cn
 	mon: .asciiz " Mon"
 	tue: .asciiz " Tue"
 	wed: .asciiz " Wed"
@@ -75,14 +75,109 @@ main_exit:
 	syscall
 
 #Ham input
-#a0:
-#v0: a0
+#a0: TIME
+#v0: TIME
+#v1: tinh hop le    1; hop le, 0: khong hop le
 input:
+	addi $sp,$sp,-24
+	sw $ra,0($sp)
+	sw $a0,4($sp)
+	sw $a1,8($sp)
 	
+	#or $s0,$0,$0		
 input_loop:
+	or $v0,$0,4		# print string
+	la $a0,inp_day		# input day
+	syscall
+	or $v0,$0,8		# read string
+	lw $a0,4($sp)
+	or $a1,$0,100		# string max size
+	syscall
+	jal str2int		# convert day string to int
+	slti $t0,$v0,0		# if return -1 < 0 then non-valid
+	bne $v0,$0,input_non_valid
+	sw $v0,12($sp)		# save day (int) to stack
 	
+	or $v0,$0,4		# print string
+	la $a0,inp_month	# input month
+	syscall
+	or $v0,$0,8		# read string
+	lw $a0,4($sp)
+	or $a1,$0,100		# string max size
+	syscall
+	jal str2int		# convert month string to int
+	slti $t0,$v0,0		# if return -1 < 0 then non-valid
+	bne $v0,$0,input_non_valid
+	sw $v0,16($sp)		# save month (int) to stack
+	
+	or $v0,$0,4		# print string
+	la $a0,inp_year	# input year
+	syscall
+	or $v0,$0,8		# read string
+	lw $a0,4($sp)
+	or $a1,$0,100		# string max size
+	syscall
+	jal str2int		# convert year string to int
+	slti $t0,$v0,0		# if return -1 < 0 then non-valid
+	bne $v0,$0,input_non_valid
+	sw $v0,20($sp)		# save year (int) to stack
+	
+	lw $a0,12($sp)		# load day int
+	lw $a1,16($sp)		# load month int
+	lw $a2,20($sp)		# load year int
+	lw $a3,4($sp)		# load TIME address
+	jal Date		# push into Date function
+	
+	#or $a0,$0,$v0
+	lw $a0,4($sp)		# load TIME address
+	#jal check_valid
+	#bne $v0,$0,input_exit	# v0=1:valid -> exit
+	
+	# if v0=0, input_non_valid
+input_non_valid:
+	la $a0,inp_error	# not valid
+	or $v0,$0,4
+	syscall
+	j input_loop		# input again
 input_exit:
-	
+	or $v0,$0,$a0		# return TIME
+	lw $ra,0($sp)
+	lw $a0,4($sp)
+	lw $a1,8($sp)
+	addi $sp,$sp,24
+	jr $ra
+#Ham chuyen chuoi sang so
+# a0: string
+# v0: int	(-1 if not valid)
+str2int:
+	addi $sp,$sp,-16
+	sw $ra,0($sp)
+	sw $t0,4($sp)
+	sw $t1,8($sp)
+	sw $t2,12($sp)
+	or $v0,$0,$0		# ban dau = 0
+	add $t0,$0,$a0		# t0 = pointer to string
+str2int_loop:
+	lb $t1,0($t0)		#load char into t1
+	beq $t1,$0,str2int_exit	# exit if end of string
+	slti $t2,$t1,48		# t1 < 48 = '0' ?
+	bne $t2,$0,str2int_non_digit
+	slti $t2,$t1,58		# 57 = '9'
+	beq $t2,$0,str2int_non_digit
+	addi $t1,$t1,-48	# convert char to int
+	mul $v0,$v0,10		#v0=v0*10
+	add $v0,$v0,$t1		#v0=v0+t1
+	addi $t0,$t0,1		# point to next char
+	j str2int_loop
+str2int_non_digit:
+	addi $v0,$0,-1		# v0 = -1: khong phai so
+str2int_exit:
+	lw $ra,0($sp)
+	lw $t0,4($sp)
+	lw $t1,8($sp)
+	lw $t2,12($sp)
+	addi $sp,$sp,16
+	jr $ra
 
 #Ham menu
 # a0: TIME
@@ -91,8 +186,8 @@ menu:
 	sw $ra,0($sp)
 	sw $t0,4($sp)
 	jal input
-	
 	sw $v0,8($sp)		#luu TIME
+	
 	addi $v0, $0, 4		#syscall print string
 	la $a0, plz_choose
 	syscall
@@ -121,7 +216,7 @@ menu:
 	addi $v0,$v0,-1		# i starts with 0
 	sll $v0,$v0,2		
 	la $s0,menu_list	#dia chi cua menu_list
-	addi $s0,$s0,$v0	#menu_list[i]
+	add $s0,$s0,$v0	#menu_list[i]
 	jr $s0
 	
 choose1:
@@ -138,7 +233,7 @@ choose2:
 	syscall
 	or $a1,$0,$v0		# type A/B/C
 	lw $a0,8($sp)		#load TIME tu stack
-	jal convert		
+	jal Convert		
 	or $a0,$v0,$0
 	or $v0,$0,4		#print string
 	syscall
@@ -168,7 +263,7 @@ menu_exit:
 #Ham kiem tra
 #a0 TIME
 #v0 1:True 0:false
-check_valid
+#check_valid
 
 
 # a0:day, a1:month, a2:year, a3:TIME
@@ -219,7 +314,7 @@ Date:
 	sb $t1,8($a3)		#TIME[8]
 	sb $t2,9($a3)		#TIME[9]
 	sb $0, 10($a3)		# '\0'
-	addi $v0,$0,$a3
+	add $v0,$0,$a3
 	jr $ra
 #Ham Convert
 # a0:TIME a1:type
@@ -285,7 +380,7 @@ Convert_B:
 	lw $t1,12($sp)
 	j Convert_exit
 Convert_C:
-	la $s0,$a0		#Luu dia chi TIME vao $s0
+	la $s0,($)		#Luu dia chi TIME vao $s0
 	sw $a0,8($sp)		# luu TIME vao stack
 	la $a0,converted	# luu dia chi converted vao $a0
 	lb $t1,0($s0)		#So dau tien trong DD
@@ -379,7 +474,7 @@ Year:
 	
 	la $a0,6($a0)		#dia chi TIME[6] gan vao $a0
 	jal Day			#lay ra 2 so dau trong YYYY
-	addi $t0,0,100
+	addi $t0,$0,100
 	mult $v0,$t0
 	mflo $t0
 	la $a0,2($a0)		#dia chi (a0+2) TIME[8] gan vao $a0
@@ -400,11 +495,11 @@ month_string:
 	sw $a0,4($sp)
 	sw $s0,0($sp)
 	
-	jal month		#lay TIME truyen vao
+	jal Month		#lay TIME truyen vao
 	addi $a0,$v0,-1		#duoc thang (int), -1 de truyen vao mang
 	la $s0 month_string	#lay dia chi month_string
 	sll $a0,$a0,2		#i*4
-	addi $a0,$a0,$s0	#month_string[i]
+	add $a0,$a0,$s0	#month_string[i]
 	#lw $a0,$a0	??????????????????????????
 	jr $a0
 m1:
