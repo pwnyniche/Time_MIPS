@@ -1,6 +1,6 @@
 .data
 	#time
-	converted: .space 20
+	converted: .space 30
 	# day
 	#daysOfWeek: .word t2, t3, t4, t5, t6, t7, cn
 	mon: .asciiz " Mon"
@@ -50,7 +50,7 @@
 	opt5: .asciiz "5. Cho biet khoang thoi gian giua chuoi TIME_1 va TIME_2\n"
 	opt6: .asciiz "6. Cho biet 2 nam nhuan gan nhat voi nam trong chuoi time\n"
 	opt7: .asciiz "Kiem tra bo du lieu dau vao khi nhap, neu du lieu khong hop le thi yeu cau nguoi dung nhap lai.\n"
-	ask_again: .asciiz "Ban muon tiep tuc (1) hay thoat (0) ? "
+	ask_again: .asciiz "\nBan muon tiep tuc (1) hay thoat (0) ? "
 	#convert
 	choose_abc: .asciiz "Vui long chon A,B,C: "
 	not_abc: .asciiz "Khong phai A,B,C\n"
@@ -238,16 +238,22 @@ choose1:
 	syscall
 	j menu_exit
 choose2:
-	lw $a0,choose_abc	#Chon a,b,c
+	la $a0,choose_abc	#Chon a,b,c
 	or $v0,$0,4		#print string
 	syscall
 	
 	or $v0,$0,12		#syscall read char
 	syscall
 	or $a1,$0,$v0		# type A/B/C
-	lw $a0,8($sp)		#load TIME tu stack
-	jal Convert		
-	lw $a0,($v0)
+	lw $a0,8($sp)		# load TIME tu stack
+	jal Convert
+	sw $v0,8($sp)		# t2= v0 (dia chi TIME)
+	
+	or $a0, $0, 10		# 10 = '\n'
+	or $v0, $0, 11		# syscall print char
+	syscall
+	
+	lw $a0,8($sp)
 	or $v0,$0,4		#print string
 	syscall
 	j menu_exit
@@ -282,6 +288,8 @@ menu_exit:
 # a0:day, a1:month, a2:year, a3:TIME
 # v0: chuoi TIME
 Date:
+	addi $sp,$sp,-4
+	sw $ra,0($sp)
 	addi $t0,$0,10
 	div $a0, $t0
 	mflo $t1		#day/10
@@ -329,6 +337,8 @@ Date:
 	sb $t2,9($a3)		#TIME[9]
 	sb $0, 10($a3)		# '\0'
 	add $v0,$0,$a3
+	lw $ra,0($sp)
+	addi $sp,$sp,4
 	jr $ra
 #Ham Convert
 # a0:TIME a1:type
@@ -359,22 +369,28 @@ Convert_A:
 	sb $t1,4($a0)
 	j Convert_exit
 Convert_B:
+	
 	sw $a0,8($sp)
+	
 	sw $t1,12($sp)
 	jal month_string	#truyen vao TIME -> duoc chuoi thang ("March")
+	add $a1,$0,$v0
 	add $a0,$0,$v0
+	
 	jal length		#lay do dai chuoi thang 
 	add $t0,$0,$v0		#luu vao t0
-	add $a1,$0,$a0
+	
 	la $a0,converted
 	jal strcpy		#copy chuoi thang vao converted
 	add $a0,$v0,$0		#truyen lai vao a0
+	
 	add $a0,$a0,$t0		#truyen dia chi cuoi chuoi thang vao a0
 	
 	addi $t1,$0,32		# ki tu khoang trang  ' '
 	sb $t1,0($a0)		#them ki tu ' ' vao
 	
 	lw $s0,8($sp)		#Gan lai TIME vao s0
+	
 	lb $t1,0($s0)		#So dau tien trong DD
 	sb $t1,1($a0)		#Gan vao
 	lb $t1,1($s0)		#So thu 2 trong DD
@@ -392,9 +408,11 @@ Convert_B:
 	addi $a0,$a0,-5		# chuyen dia chi len lai 5 
 	sub $a0,$a0,$t0		# chuyen dia chi len t0=do dai chuoi thang
 	lw $t1,12($sp)
+	#lw $ra,0($sp)
 	j Convert_exit
 Convert_C:
-	la $s0,($)		#Luu dia chi TIME vao $s0
+	#sw $ra,0($sp)
+	la $s0,($a0)		#Luu dia chi TIME vao $s0
 	sw $a0,8($sp)		# luu TIME vao stack
 	la $a0,converted	# luu dia chi converted vao $a0
 	lb $t1,0($s0)		#So dau tien trong DD
@@ -432,11 +450,12 @@ Convert_C:
 	
 	addi $a0,$a0,-5		# chuyen dia chi len lai 5 
 	sub $a0,$a0,$t0		# chuyen dia chi len t0=do dai chuoi thang
+	#lw $ra,0($sp)
 	j Convert_exit
 Convert_exit:
 	add $v0,$0,$a0
-	lw $t0,4($sp)
 	lw $ra,0($sp)
+	lw $t0,4($sp)
 	addi $sp,$sp,16
 	jr $ra
 	
@@ -453,12 +472,13 @@ Day:
 	addi $t0,$t0,-48	#TIME[0]-'0'
 	addi $t1,$0,10
 	mult $t0,$t1
-	mflo $t1
+	mflo $t0
 	
-	lb $t0,1($a0)		#TIME[1]
-	addi $t0,$t0,-48	#TIME[1]-'0'
-	add $v0,$t0,$t1
+	lb $t1,1($a0)		#TIME[1]
+	addi $t1,$t1,-48	#TIME[1]-'0'
+	add $t0,$t0,$t1
 	
+	or $v0,$0,$t0
 	lw $ra,0($sp)
 	lw $t0,4($sp)
 	lw $t1,8($sp)
@@ -473,7 +493,7 @@ Month:
 	sw $ra,0($sp)
 	la $a0,3($a0)		#dia chi TIME[3] gan vao $a0
 	jal Day			#v0 cua Day cung la v0 cua Month ??
-	
+	or $v0,$0,$v0
 	lw $ra,0($sp)
 	addi $sp,$sp,4
 	jr $ra
@@ -488,6 +508,7 @@ Year:
 	
 	la $a0,6($a0)		#dia chi TIME[6] gan vao $a0
 	jal Day			#lay ra 2 so dau trong YYYY
+	or $v0,$0,$v0
 	addi $t0,$0,100
 	mult $v0,$t0
 	mflo $t0
@@ -497,7 +518,7 @@ Year:
 	
 	lw $ra,0($sp)
 	lw $t0,4($sp)
-	addi $sp,$sp,4
+	addi $sp,$sp,8
 	jr $ra
 
 #Ham tra ve chuoi thang tu TIME
@@ -511,10 +532,10 @@ month_string:
 	
 	jal Month		#lay TIME truyen vao
 	addi $a0,$v0,-1		#duoc thang (int), -1 de truyen vao mang
-	la $s0 month_string	#lay dia chi month_string
+	la $s0 month_name	#lay dia chi month_name
 	sll $a0,$a0,2		#i*4
-	add $a0,$a0,$s0	#month_string[i]
-	#lw $a0,$a0	??????????????????????????
+	add $a0,$a0,$s0		#month_string[i]
+	lw $a0,($a0)
 	jr $a0
 m1:
 	la $v0 jan
@@ -563,38 +584,39 @@ month_string_exit:
 # a0:destination ,a1:source
 # v0: a0
 strcpy:
-	addi $sp,$sp,-16
-	sw $ra,0($sp)
-	sw $t0,4($sp)
-	sw $t1,8($sp)
-	sw $t2,12($sp)
+	addi 	$sp, $sp, -16
+	sw	$ra, 0($sp)
+	sw	$s0, 4($sp)
+	sw	$s1, 8($sp)
+	sw	$t0, 12($sp)
 	
-	or $t0,$a0,$0		# t0=a0
-	or $t1,$a1,$0		# t1=a1
+	la	$s0, ($a0)
+	la	$s1, ($a1)
 strcpy_loop:
-	lb $t2,0($t1)
-	beq $t2,$0,strcpy_exit
-	addi $t1,$t1,1
-	sb $t2,0($t0)
-	addi $t0,$t0,1
-	j strcpy_loop
-strcpy_exit:
-	or $v0,$t0,$0
-	lw $ra,0($sp)
-	lw $t0,4($sp)
-	lw $t1,8($sp)
-	lw $t2,12($sp)
-	addi $sp,$sp,8
-	jr $ra
+	lb 	$t0, ($s1)		#load byte contained in address s1
+	beq	$t0, $0, strcpy_end
+	sb	$t0, ($s0)		#save byte to address s0
+	addi	$s0, $s0, 1
+	addi 	$s1, $s1, 1
+	j	strcpy_loop
+strcpy_end:
+	la	$v0, ($a0)
+	lw	$ra, 0($sp)
+	lw	$s0, 4($sp)
+	lw	$s1, 8($sp)
+	lw	$t0, 12($sp)
+	addi 	$sp, $sp, 16
+	jr 	$ra
 
 #Ham do dai chuoi
 # a0: chuoi
 # v0: int
 length:
-	addi $sp,$sp,-12
+	addi $sp,$sp,-16
 	sw $ra,0($sp)
 	sw $t0,4($sp)
 	sw $t1,8($sp)
+	sw $a0,12($sp)
 	or $t1,$0,$0		#count=0
 length_loop:
 	lb $t0,($a0)		#load byte into t0	
@@ -607,7 +629,8 @@ length_exit:
 	lw $ra,0($sp)
 	lw $t0,4($sp)
 	lw $t1,8($sp)
-	addi $sp,$sp,12
+	lw $a0,12($sp)
+	addi $sp,$sp,16
 	jr $ra
 
 
