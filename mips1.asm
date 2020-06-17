@@ -26,7 +26,7 @@
 	dec: .asciiz "December"
 	songay: .word 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
 
-	# jump table
+	# jump list
 	month_name: .word m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12
 	menu_list: .word choose1, choose2, choose3, choose4, choose5, choose6, choose7
 	#input
@@ -226,6 +226,7 @@ menu:
 	sll $v0,$v0,2		
 	la $s0,menu_list	#dia chi cua menu_list
 	add $s0,$s0,$v0	#menu_list[i]
+	lw $s0,0($s0)
 	jr $s0
 	
 choose1:
@@ -243,7 +244,7 @@ choose2:
 	or $a1,$0,$v0		# type A/B/C
 	lw $a0,8($sp)		#load TIME tu stack
 	jal Convert		
-	or $a0,$v0,$0
+	lw $a0,($v0)
 	or $v0,$0,4		#print string
 	syscall
 	j menu_exit
