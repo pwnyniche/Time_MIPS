@@ -133,9 +133,12 @@ input_loop:
 	lw $a3,4($sp)		# load TIME address
 	jal Date		# push into Date function
 	
+	or $a0,$0,$v0
+	or $v0,$0,4
+	syscall 
 	#or $a0,$0,$v0
 	lw $a0,4($sp)		# load TIME address
-	j input_exit
+	j input_exit		# lam xong check_valid thi bo dong nay
 	#jal check_valid
 	#bne $v0,$0,input_exit	# v0=1:valid -> exit
 	
@@ -197,7 +200,7 @@ menu:
 	jal input
 	sw $v0,8($sp)		#luu TIME
 	
-	addi $v0, $0, 4		#syscall print string
+	addi $v0,$0,4		#syscall print string
 	la $a0, plz_choose
 	syscall
 	la $a0, opt1
@@ -281,8 +284,8 @@ menu_exit:
 Date:
 	addi $t0,$0,10
 	div $a0, $t0
-	mfhi $t1		#day/10
-	mflo $t2		#day%10
+	mflo $t1		#day/10
+	mfhi $t2		#day%10
 	addi $t1,$t1,48		
 	addi $t2,$t2,48
 	sb $t1,0($a3)		#TIME[0]
@@ -292,8 +295,8 @@ Date:
 	
 	addi $t0,$0,10
 	div $a1, $t0
-	mfhi $t1		#month/10
-	mflo $t2		#month%10
+	mflo $t1		#month/10
+	mfhi $t2		#month%10
 	addi $t1,$t1,48		
 	addi $t2,$t2,48
 	sb $t1,3($a3)		#TIME[3]
@@ -301,24 +304,25 @@ Date:
 	addi $t4,$0,47		#char '/'
 	sb $t4,5($a3)		#TIME[5]
 	
+	add $t1,$0,$a2		#t1=year
 	addi $t0,$0,1000
-	div $a2, $t0
-	mfhi $t1		#year/1000
-	mflo $t2		#year%1000
+	div $t1, $t0
+	mflo $t1		#year/1000
+	mfhi $t2		#year%1000
 	addi $t1,$t1,48	
 	sb $t1,6($a3)		#TIME[6]
 	
 	addi $t0,$0,100
 	div $t2, $t0
-	mfhi $t3		#t2/100
-	mflo $t4		#t2%100
-	addi $t1,$t1,48	
-	sb $t1,7($a3)		#TIME[7]
+	mflo $t3		#t2/100
+	mfhi $t4		#t2%100
+	addi $t3,$t3,48	
+	sb $t3,7($a3)		#TIME[7]
 	
 	addi $t0,$0,10
 	div $t4, $t0
-	mfhi $t1		#t4/10
-	mflo $t2		#t4%10
+	mflo $t1		#t4/10
+	mfhi $t2		#t4%10
 	addi $t1,$t1,48		
 	addi $t2,$t2,48
 	sb $t1,8($a3)		#TIME[8]
