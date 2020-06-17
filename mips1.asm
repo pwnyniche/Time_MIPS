@@ -33,9 +33,10 @@
 	inp_day: .asciiz "\nNhap ngay DAY:"
 	inp_month: .asciiz "\nNhap thang MONTH:"
 	inp_year: .asciiz "\nNhap nam YEAR:"
-	inp_error: .asciiz "Ngay khong hop le\n"
+	inp_error: .asciiz "Khong hop le\n"
 	time1: .space 30
 	time2: .space 30
+	str_tmp: .space 30
 	strlen: .space 30
 	#menu
 	plz_choose: .asciiz "\n----------Ban hay chon 1 trong cac thao tac duoi day----------\n"
@@ -57,9 +58,11 @@
 .text
 	.globl main
 #Ham main
+
 main:
 	main_loop:
 	la $a0,time1
+	la $a1,str_tmp
 	jal menu
 	
 	la $a0,ask_again	# again or exit ?
@@ -76,6 +79,7 @@ main_exit:
 
 #Ham input
 #a0: TIME
+#a1: str_tmp
 #v0: TIME
 #v1: tinh hop le    1; hop le, 0: khong hop le
 input:
@@ -90,12 +94,13 @@ input_loop:
 	la $a0,inp_day		# input day
 	syscall
 	or $v0,$0,8		# read string
-	lw $a0,4($sp)
+	lw $a0,8($sp)
 	or $a1,$0,100		# string max size
 	syscall
+	lw $a0,8($sp)
 	jal str2int		# convert day string to int
 	slti $t0,$v0,0		# if return -1 < 0 then non-valid
-	bne $v0,$0,input_non_valid
+	bne $t0,$0,input_non_valid
 	sw $v0,12($sp)		# save day (int) to stack
 	
 	or $v0,$0,4		# print string
@@ -107,7 +112,7 @@ input_loop:
 	syscall
 	jal str2int		# convert month string to int
 	slti $t0,$v0,0		# if return -1 < 0 then non-valid
-	bne $v0,$0,input_non_valid
+	bne $t0,$0,input_non_valid
 	sw $v0,16($sp)		# save month (int) to stack
 	
 	or $v0,$0,4		# print string
@@ -119,7 +124,7 @@ input_loop:
 	syscall
 	jal str2int		# convert year string to int
 	slti $t0,$v0,0		# if return -1 < 0 then non-valid
-	bne $v0,$0,input_non_valid
+	bne $t0,$0,input_non_valid
 	sw $v0,20($sp)		# save year (int) to stack
 	
 	lw $a0,12($sp)		# load day int
@@ -130,6 +135,7 @@ input_loop:
 	
 	#or $a0,$0,$v0
 	lw $a0,4($sp)		# load TIME address
+	j input_exit
 	#jal check_valid
 	#bne $v0,$0,input_exit	# v0=1:valid -> exit
 	
@@ -160,6 +166,8 @@ str2int:
 str2int_loop:
 	lb $t1,0($t0)		#load char into t1
 	beq $t1,$0,str2int_exit	# exit if end of string
+	or $t2,$0,10
+	beq $t1,$t2,str2int_exit	# exit if '\0'
 	slti $t2,$t1,48		# t1 < 48 = '0' ?
 	bne $t2,$0,str2int_non_digit
 	slti $t2,$t1,58		# 57 = '9'
@@ -181,6 +189,7 @@ str2int_exit:
 
 #Ham menu
 # a0: TIME
+# a1: str_tmp
 menu:
 	addi $sp,$sp,-12
 	sw $ra,0($sp)
