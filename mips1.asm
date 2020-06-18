@@ -33,7 +33,7 @@
 	inp_day: .asciiz "\nNhap ngay DAY:"
 	inp_month: .asciiz "\nNhap thang MONTH:"
 	inp_year: .asciiz "\nNhap nam YEAR:"
-	inp_error: .asciiz "Khong hop le\n"
+	inp_error: .asciiz " Khong hop le\n"
 	time1: .space 30
 	time2: .space 30
 	str_tmp: .space 30
@@ -54,7 +54,9 @@
 	#convert
 	choose_abc: .asciiz "Vui long chon A,B,C: "
 	not_abc: .asciiz "Khong phai A,B,C\n"
-	
+	#message
+	is_a_leap_year: .asciiz "Nam trong chuoi TIME la nam nhuan\n"
+	is_not_a_leap_year: .asciiz "Nam trong chuoi TIME khong phai la nam nhuan\n"	
 .text
 	.globl main
 #Ham main
@@ -90,13 +92,16 @@ input:
 	
 	#or $s0,$0,$0		
 input_loop:
+	
 	or $v0,$0,4		# print string
 	la $a0,inp_day		# input day
 	syscall
+	
 	or $v0,$0,8		# read string
 	lw $a0,8($sp)
 	or $a1,$0,100		# string max size
 	syscall
+	
 	lw $a0,8($sp)
 	jal str2int		# convert day string to int
 	slti $t0,$v0,0		# if return -1 < 0 then non-valid
@@ -106,10 +111,12 @@ input_loop:
 	or $v0,$0,4		# print string
 	la $a0,inp_month	# input month
 	syscall
+	
 	or $v0,$0,8		# read string
 	lw $a0,4($sp)
 	or $a1,$0,100		# string max size
 	syscall
+	
 	jal str2int		# convert month string to int
 	slti $t0,$v0,0		# if return -1 < 0 then non-valid
 	bne $t0,$0,input_non_valid
@@ -138,16 +145,18 @@ input_loop:
 	syscall 
 	#or $a0,$0,$v0
 	lw $a0,4($sp)		# load TIME address
-	j input_exit		# lam xong check_valid thi bo dong nay
-	#jal check_valid
-	#bne $v0,$0,input_exit	# v0=1:valid -> exit
 	
-	# if v0=0, input_non_valid
+	jal check_valid
+	bne $v0,$0,input_exit	# v0=1:valid -> exit
+	
+# if v0=0, input_non_valid
 input_non_valid:
 	la $a0,inp_error	# not valid
 	or $v0,$0,4
 	syscall
-	j input_loop		# input again
+	addi $sp,$sp,24
+	j main
+	#j input_loop		# input again
 input_exit:
 	or $v0,$0,$a0		# return TIME
 	lw $ra,0($sp)
@@ -258,11 +267,27 @@ choose2:
 	syscall
 	j menu_exit
 choose3:
+	#lw $a0,8($sp)		# load TIME tu stack
+	#jal check_weekday	#tra ve chuoi v0
 	
 	j menu_exit
 choose4:
+	lw $a0,8($sp)		# load TIME tu stack
+	jal check_leap_year	#tra ve v0 (0,1)
 	
+	beq $v0,$0,not_a_leap_year #neu v0=0 thi k phai nam nhuan
+	
+	la $a0,is_a_leap_year 	#v0=1 thi la nam nhuan
+	or $v0,$0,4		#syscall print string
+	syscall
 	j menu_exit
+	
+	not_a_leap_year:
+	la $a0,is_not_a_leap_year 	#thong bao khong phai nam nhuan
+	or $v0,$0,4		#syscall print string
+	syscall
+	j menu_exit
+	
 choose5:
 	
 	j menu_exit
@@ -283,8 +308,145 @@ menu_exit:
 #a0 TIME
 #v0 1:True 0:false
 #check_valid
+check_valid:
+	addi $sp,$sp,-8
+	sw $ra,0($sp)
+	sw $a0,4($sp)
+	
+	jal Day
+	add $t0,$0,$v0		#lay ngay
+	
+	beq $t0,$0,invalid_check #ngay = 0 ?
+	
+	lw $a0,4($sp)
+	jal Month
+	add $t0,$0,$v0		#lay thang
+	beq $t0,$0,invalid_check #thang = 0 ?
+	slti $t1,$t0,13
+	beq $t1,$0,invalid_check #thang >= 13?
+	
+	lw $a0,4($sp)
+	jal check_leap_year 	#kiem tra nam nhuan
+	beq $v0,$0, not_leap_check_valid
+	j leap_check_valid
 
+not_leap_check_valid:
+	lw $a0,4($sp)
+	jal Day
+	add $t0,$0,$v0		#lay ngay
+	lw $a0,4($sp)
+	jal Month		
+	add $t1,$0,$v0		#lay thang
+	
+	
+	addi $t2,$0,2
+	bne $t1,$t2,check_day_month 
+	
+	#truong hop thang 2
+	slti $t3,$t0,29		#day < 29?
+	beq $t3,$0,invalid_check
+	j valid_check
+	
+leap_check_valid:
+	lw $a0,4($sp)
+	jal Day
+	add $t0,$0,$v0		#lay ngay
+	lw $a0,4($sp)
+	jal Month		
+	add $t1,$0,$v0		#lay thang
+	
+	
+	addi $t2,$0,2
+	bne $t1,$t2,check_day_month 
+	
+	#truong hop thang 2
+	slti $t3,$t0,39		#day < 30?
+	beq $t3,$0,invalid_check
+	j valid_check
 
+check_day_month:		#kiem tra ngay thang hop li
+	slti $t3,$t0,32		#day <=31?
+	beq $t3,$0,invalid_check 
+	
+	addi $t4,$0,31		
+	beq $t0,$t4,check_31_months	#day = 31?
+	
+	j valid_check
+
+check_31_months:
+	addi $t4,$0,1
+	beq $t1,$t4,valid_check	#thang 1
+	
+	addi $t4,$0,3
+	beq $t1,$t4,valid_check	#thang 3
+	
+	addi $t4,$0,5
+	beq $t1,$t4,valid_check	#thang 5
+	
+	addi $t4,$0,7
+	beq $t1,$t4,valid_check	#thang 7
+	
+	addi $t4,$0,8
+	beq $t1,$t4,valid_check	#thang 8
+	
+	addi $t4,$0,10
+	beq $t1,$t4,valid_check	#thang 10
+	
+	addi $t4,$0,12
+	beq $t1,$t4,valid_check	#thang 12
+	
+	#khong dung thi invalid check
+invalid_check:
+	add $v0,$0,$0		#ngay k hop le -> tra ve 0
+	lw $ra,0($sp)
+	addi $sp,$sp,4
+	jr $ra
+
+valid_check:
+	addi $v0,$0,1		#ngay k hop le -> tra ve 1
+	lw $ra,0($sp)
+	lw $a0,4($sp)
+	addi $sp,$sp,8
+	jr $ra
+
+#Ham kiem tra nam nhuan
+# a0 = TIME
+# v0 tra ve 0/1
+check_leap_year:
+	addi $sp,$sp,-4
+	sw $ra,0($sp)
+	
+	jal Year 		#lay ra nam tu chuoi TIME
+	add $t0,$0,$v0 		#t0 = v0 = nam
+	
+	addi $t1,$0,400
+	div $t0,$t1		#check chia het cho 400 truoc	
+	mfhi $t3		#t3 = t0 % 400
+	beq $t3,$0,check_leap_year_true
+	
+	addi $t1,$0,100
+	div $t0,$t1		#check chia het cho 100	
+	mfhi $t3		#t3 = t0 % 100
+	beq $t3,$0,check_leap_year_false
+	
+	addi $t1,$0,4
+	div $t0,$t1		#check chia het cho 4 va k chia het cho 100	
+	mfhi $t3		#t3 = t0 % 4
+	beq $t3,$0,check_leap_year_true
+	j check_leap_year_false	#khong chia het cho 4 thi k phai leap year
+	
+	check_leap_year_true:
+	addi $v0,$0,1		#v0=1
+	lw $ra,0($sp)
+	addi $sp,$sp,4
+	jr $ra
+
+	check_leap_year_false:
+	add $v0,$0,$0		#v0=0
+	lw $ra,0($sp)
+	addi $sp,$sp,4
+	jr $ra
+	
 # a0:day, a1:month, a2:year, a3:TIME
 # v0: chuoi TIME
 Date:
@@ -632,6 +794,3 @@ length_exit:
 	lw $a0,12($sp)
 	addi $sp,$sp,16
 	jr $ra
-
-
-
