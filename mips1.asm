@@ -267,9 +267,12 @@ choose2:
 	syscall
 	j menu_exit
 choose3:
-	#lw $a0,8($sp)		# load TIME tu stack
-	#jal check_weekday	#tra ve chuoi v0
+	lw $a0,8($sp)		# load TIME tu stack
+	jal find_weekday	#tra ve chuoi v0
 	
+	move $a0,$v0
+	or $v0,$0,4		#syscall print string
+	syscall
 	j menu_exit
 choose4:
 	lw $a0,8($sp)		# load TIME tu stack
@@ -408,7 +411,114 @@ valid_check:
 	lw $a0,4($sp)
 	addi $sp,$sp,8
 	jr $ra
+#Ham tim weekday
+#a0 = TIME
+#v0 tra ve chuoi ky tu cua weekday tim duoc
 
+find_weekday:			#su dung thuat toan Zeller
+	addi $sp,$sp,-8
+	sw $ra,0($sp)
+	sw $a0,4($sp)
+	
+	jal Year
+	add $t0,$0,$v0
+	
+	lw $a0,4($sp)
+	jal Month
+	add $t1,$0,$v0		#lay thang
+	slti $t2,$t1,3		#kiem tra thang 1,2 ?
+	beq $t2,$0,jump_weekday
+	addi $t0,$t0,-1		#neu la thang 1,2 thi year-1
+	addi $t1,$t1,12		#va thang += 12
+	# x = (d + [13(m+1)/5] + y + [y/4] - [y/100] + [y/400]) mod 7
+jump_weekday:	
+	lw $a0,4($sp)
+	jal Day
+	add $t2,$0,$v0		# $t2 = d
+	
+	addi $t3,$0,5
+	addi $t4,$0,13
+	
+	addi $t1,$t1,1		# m = m+1
+	mul $t1,$t1,$t4		# m = 13(m+1)
+	div $t1,$t3	
+	mflo $t1		# $t1 = [13(m+1)/5]
+	
+	addi $t3,$0,4	
+	div $t0,$t3
+	mflo $t4		# $t4 = [y/4]
+	
+	addi $t3,$0,100	
+	div $t0,$t3
+	mflo $t5		# $t5 = [y/100]
+	
+	addi $t3,$0,400	
+	div $t0,$t3
+	mflo $t6		# $t6 = [y/400]
+	
+	add $t7,$t2,$t1		# $t7 = d + [13(m+1)/5]
+	add $t7,$t7,$t0		# $t7 += y
+	add $t7,$t7,$t4		# $t7 += [y/4]
+	sub $t7,$t7,$t5		# $t7 -= [y/100]
+	add $t7,$t7,$t6		# $t7 += [y/400]
+	
+	addi $t3,$0,7
+	div $t7,$t3
+	mfhi $t7		# $t7 = $t7 mod 7
+
+weekday_Saturday:
+	bne $t7,$0,weekday_Sunday
+	la $v0,sat
+	lw $a0,4($sp)
+	lw $ra,0($sp)
+	addi $sp,$sp,8
+	jr $ra
+weekday_Sunday:
+	addi $t3,$0,1
+	bne $t7,$t3,weekday_Monday
+	la $v0,sun
+	lw $a0,4($sp)
+	lw $ra,0($sp)
+	addi $sp,$sp,8
+	jr $ra
+weekday_Monday:
+	addi $t3,$0,2
+	bne $t7,$t3,weekday_Tuesday
+	la $v0,mon
+	lw $a0,4($sp)
+	lw $ra,0($sp)
+	addi $sp,$sp,8
+	jr $ra
+weekday_Tuesday:
+	addi $t3,$0,3
+	bne $t7,$t3,weekday_Wednesday
+	la $v0,tue
+	lw $a0,4($sp)
+	lw $ra,0($sp)
+	addi $sp,$sp,8
+	jr $ra
+weekday_Wednesday:
+	addi $t3,$0,4
+	bne $t7,$t3,weekday_Thursday
+	la $v0,wed
+	lw $a0,4($sp)
+	lw $ra,0($sp)
+	addi $sp,$sp,8
+	jr $ra
+weekday_Thursday:
+	addi $t3,$0,5
+	bne $t7,$t3,weekday_Friday
+	la $v0,thu
+	lw $a0,4($sp)
+	lw $ra,0($sp)
+	addi $sp,$sp,8
+	jr $ra
+weekday_Friday:	
+	la $v0,fri
+	lw $a0,4($sp)
+	lw $ra,0($sp)
+	addi $sp,$sp,8
+	jr $ra
 #Ham kiem tra nam nhuan
 # a0 = TIME
 # v0 tra ve 0/1
